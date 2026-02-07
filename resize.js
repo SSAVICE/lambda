@@ -10,7 +10,7 @@ import sharp from "sharp";
 /**
  * S3: 원본 이미지(origin)를 읽어서
  * - profile/company: 128x128 썸네일을 thumb 경로에 "생성"
- * - serviceItem    : 256x256 리사이즈 이미지를 resize 경로에 "생성"
+ * - serviceItem: rep_ prefix 파일만 256x256 썸네일을 thumb 경로에 "생성"
  *
  * ✅ 중요 정책
  * - origin(원본)은 절대 삭제하지 않는다 (삭제 없이 복사 생성만).
@@ -98,6 +98,12 @@ export const handler = async (event) => {
       continue;
     }
 
+    // serviceItem은 rep_ prefix가 붙은 파일만 썸네일 생성 대상
+    if (root === "serviceItem" && !filename.startsWith("thumb_")) {
+      console.log("skip non-thumb serviceItem:", originKey);
+      continue;
+    }
+
     /**
      * 4) 파일 확장자 파싱 및 sharp output format 결정
      *
@@ -120,16 +126,12 @@ export const handler = async (event) => {
     const outExt = outFormat === "jpeg" ? "jpg" : outFormat;
 
     /**
-     * 5) root별 정책 결정
-     * - serviceItem: 256x256, 결과 경로는 resize
-     * - profile/company: 128x128, 결과 경로는 thumb
+     * 5) 썸네일 정책
+     * - profile/company: 128x128 썸네일
+     * - serviceItem: 256x256 썸네일 (rep_ prefix 파일만 도달)
      */
-    const isServiceItem = root === "serviceItem";
-
-    const size = isServiceItem ? 256 : 128;
-    const targetKey = isServiceItem
-      ? `${root}/resize/${ownerId}/${uuid}.${outExt}`
-      : `${root}/thumb/${ownerId}/${uuid}.${outExt}`;
+    const size = root === "serviceItem" ? 256 : 128;
+    const targetKey = `${root}/thumb/${ownerId}/${uuid}.${outExt}`;
 
     /**
      * 6) 멱등성 보장
@@ -192,10 +194,8 @@ export const handler = async (event) => {
     /**
      * 11) SQS 완료 메시지 발행
      * - Spring에서 이 메시지를 받아 DB 메타데이터 갱신(예: thumbKey 저장, isActive 전환 등)
-     * - serviceItem의 경우 targetKey가 resizeKey가 됨
      *
      * NOTE: 메시지 스키마는 Spring DTO와 맞춰야 한다.
-     *       (이 예시에서는 resultKey로 통일)
      */
     if (QUEUE_URL) {
       await sqs.send(
@@ -205,7 +205,7 @@ export const handler = async (event) => {
             status: "DONE",
             bucket,
             originKey,
-            resultKey: targetKey, // thumbKey 또는 resizeKey를 통일해서 전달
+            thumbKey: targetKey,
             root,
             ownerId,
             ts: new Date().toISOString(),
