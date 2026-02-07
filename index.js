@@ -11,6 +11,7 @@
 import sharp from "sharp";
 import { objectExists, downloadOrigin, uploadThumb, notifyComplete } from "./aws.js";
 import { parseOriginKey, resolveFormat } from "./parse.js";
+import { notifyFailure } from "./discord.js";
 
 /**
  * S3 이벤트 레코드 하나를 처리한다.
@@ -73,7 +74,15 @@ export const handler = async (event) => {
   console.log("event:", JSON.stringify(event));
 
   for (const record of event.Records ?? []) {
-    await processRecord(record);
+    const originKey = decodeURIComponent(
+      record.s3.object.key.replace(/\+/g, " "),
+    );
+    try {
+      await processRecord(record);
+    } catch (err) {
+      console.error("processRecord failed:", originKey, err);
+      await notifyFailure(originKey, err);
+    }
   }
 
   return { status: "ok" };
