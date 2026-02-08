@@ -9,9 +9,9 @@
  *  - serviceItem (thumb_ prefix만) → 256×256
  */
 import sharp from "sharp";
-import { objectExists, downloadOrigin, uploadThumb, notifyComplete } from "./aws.js";
-import { parseOriginKey, resolveFormat } from "./parse.js";
-import { notifyFailure } from "./discord.js";
+import { objectExists, downloadOrigin, uploadThumb, notifyComplete } from "./aws.mjs";
+import { parseOriginKey, resolveFormat } from "./parse.mjs";
+import { notifyFailure } from "./discord.mjs";
 
 /**
  * S3 이벤트 레코드 하나를 처리한다.
