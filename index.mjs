@@ -9,7 +9,12 @@
  *  - serviceItem (thumb_ prefix만) → 256×256
  */
 import sharp from "sharp";
-import { objectExists, downloadOrigin, uploadThumb, notifyComplete } from "./aws.mjs";
+import {
+  objectExists,
+  downloadOrigin,
+  uploadThumb,
+  notifyComplete,
+} from "./aws.mjs";
 import { parseOriginKey, resolveFormat } from "./parse.mjs";
 import { notifyFailure } from "./discord.mjs";
 
@@ -21,7 +26,9 @@ import { notifyFailure } from "./discord.mjs";
 async function processRecord(record) {
   const bucket = record.s3.bucket.name;
   // S3 이벤트의 key는 URL 인코딩 + '+' 공백 치환이 필요
-  const originKey = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "));
+  const originKey = decodeURIComponent(
+    record.s3.object.key.replace(/\+/g, " ")
+  );
 
   // 처리 대상이 아닌 키(비-origin, thumb/resize 경로 등)는 skip
   const parsed = parseOriginKey(originKey);
@@ -75,13 +82,14 @@ export const handler = async (event) => {
 
   for (const record of event.Records ?? []) {
     const originKey = decodeURIComponent(
-      record.s3.object.key.replace(/\+/g, " "),
+      record.s3.object.key.replace(/\+/g, " ")
     );
     try {
       await processRecord(record);
     } catch (err) {
       console.error("processRecord failed:", originKey, err);
       await notifyFailure(originKey, err);
+      throw err;
     }
   }
 
